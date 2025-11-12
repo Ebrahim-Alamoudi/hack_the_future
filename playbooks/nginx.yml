@@ -1,6 +1,6 @@
 ---
 - name: Configure Nginx reverse proxy with TLS
-  hosts: web
+  hosts: all
   become: true
   roles:
     - nginx

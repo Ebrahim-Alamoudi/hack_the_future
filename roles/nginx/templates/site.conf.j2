@@ -1,27 +1,25 @@
 # Managed by Ansible — do not edit
 
-# --- HTTP (80): always canonicalize to HTTPS on www9 ---
 server {
     listen {{ listen_http }} default_server;
     listen [::]:{{ listen_http }} default_server;
     server_name _;
-    return 301 https://{{ canonical_name | default(server_name) }}$request_uri;
+    return 301 https://{{ canonical_name }}$request_uri;
 }
 
-# --- HTTPS (443): serve only the canonical host ---
 server {
-    listen {{ listen_https }} ssl http2 default_server;
-    listen [::]:{{ listen_https }} ssl http2 default_server;
-    server_name {{ server_name }};
+    listen {{ listen_https }} ssl default_server;
+    listen [::]:{{ listen_https }} ssl default_server;
+    server_name {{ canonical_name }};
+    http2 on;
 
+    ssl_certificate     {{ ssl_cert | default('/etc/pki/nginx/server.crt') }};
+    ssl_certificate_key {{ ssl_key  | default('/etc/pki/nginx/private/server.key') }};
     ssl_protocols TLSv1.3;
     ssl_prefer_server_ciphers on;
 
-    ssl_certificate     /etc/letsencrypt/live/{{ cert_cn | default(server_name) }}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{{ cert_cn | default(server_name) }}/privkey.pem;
-
-    {% if enable_hsts %}
-    add_header Strict-Transport-Security "max-age={{ hsts_max_age }}; includeSubDomains" always;
+    {% if enable_hsts | default(true) %}
+    add_header Strict-Transport-Security "max-age={{ hsts_max_age | default(15552000) }}; includeSubDomains" always;
     {% endif %}
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;
@@ -36,7 +34,6 @@ server {
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
 
-        # WebSocket upgrade (map is loaded globally from 00-upgrade-map.conf)
         proxy_set_header Upgrade           $http_upgrade;
         proxy_set_header Connection        $connection_upgrade;
 

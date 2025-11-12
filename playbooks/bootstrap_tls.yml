@@ -1,0 +1,23 @@
+---
+- hosts: all
+  become: true
+  tasks:
+    - name: Ensure cert directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop:
+        - /etc/pki/nginx
+        - /etc/pki/nginx/private
+
+    - name: Create self-signed cert if absent
+      command: >
+        openssl req -x509 -newkey rsa:2048 -nodes
+        -keyout /etc/pki/nginx/private/server.key
+        -out /etc/pki/nginx/server.crt
+        -days 365 -subj "/CN={{ canonical_name }}"
+      args:
+        creates: /etc/pki/nginx/server.crt
