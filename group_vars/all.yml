@@ -1,0 +1,12 @@
+server_name: "www9.htf25.qubr.be"
+canonical_name: "www9.htf25.qubr.be"
+cert_cn: "www9.htf25.qubr.be"
+
+listen_http: 80
+listen_https: 443
+
+upstream_host: "127.0.0.1"
+upstream_port: 8080
+
+enable_hsts: true
+hsts_max_age: 15552000
