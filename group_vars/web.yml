@@ -1,0 +1,21 @@
+ansible_user: ec2-user
+ansible_ssh_private_key_file: /home/ec2-user/.ssh/www9
+
+vhost_name: www9
+server_name: www9.htf25.qubr.be
+canonical_name: www9.htf25.qubr.be
+cert_cn: www9.htf25.qubr.be
+
+upstream_host: 127.0.0.1
+upstream_port: 8080
+
+listen_http: 80
+listen_https: 443
+enable_hsts: true
+hsts_max_age: 31536000
+
+manage_firewalld: true
+firewalld_zone: public
+firewalld_services: [http, https]
+firewalld_ports: []
+firewalld_sources: []

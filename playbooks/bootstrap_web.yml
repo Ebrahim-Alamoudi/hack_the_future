@@ -5,13 +5,13 @@
   gather_facts: true
 
   vars:
-    domain: web9.htf25.qubr.be
+    domain: www9.htf25.qubr.be
     app_image: quay.io/ebrahim_alamoudi/hack_the_future:latest
     app_port: 8080
     app_user: ec2-user
-    tls_dir: /etc/ssl/web9
-    cert_path: /etc/ssl/web9/web.crt
-    key_path: /etc/ssl/web9/web.key
+    tls_dir: /etc/ssl/www9
+    cert_path: /etc/ssl/www9/web.crt
+    key_path: /etc/ssl/www9/web.key
 
   tasks:
     - name: Ensure base packages (RHEL-family)
@@ -140,7 +140,7 @@
 
     - name: Nginx site config
       copy:
-        dest: /etc/nginx/conf.d/web9.conf
+        dest: /etc/nginx/conf.d/www9.conf
         mode: '0644'
         content: |
           server {
