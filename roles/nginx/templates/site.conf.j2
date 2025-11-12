@@ -1,5 +1,6 @@
 # Managed by Ansible — do not edit
 
+# --- HTTP -> HTTPS on canonical host ---
 server {
     listen {{ listen_http }} default_server;
     listen [::]:{{ listen_http }} default_server;
@@ -7,19 +8,20 @@ server {
     return 301 https://{{ canonical_name }}$request_uri;
 }
 
+# --- HTTPS vhost ---
 server {
     listen {{ listen_https }} ssl default_server;
     listen [::]:{{ listen_https }} ssl default_server;
     server_name {{ canonical_name }};
     http2 on;
 
-    ssl_certificate     {{ ssl_cert | default('/etc/pki/nginx/server.crt') }};
-    ssl_certificate_key {{ ssl_key  | default('/etc/pki/nginx/private/server.key') }};
+    ssl_certificate     {{ ssl_cert }};
+    ssl_certificate_key {{ ssl_key  }};
     ssl_protocols TLSv1.3;
     ssl_prefer_server_ciphers on;
 
-    {% if enable_hsts | default(true) %}
-    add_header Strict-Transport-Security "max-age={{ hsts_max_age | default(15552000) }}; includeSubDomains" always;
+    {% if enable_hsts %}
+    add_header Strict-Transport-Security "max-age={{ hsts_max_age }}; includeSubDomains" always;
     {% endif %}
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;

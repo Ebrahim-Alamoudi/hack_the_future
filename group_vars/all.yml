@@ -6,6 +6,7 @@ listen_https: 443
 upstream_host: "127.0.0.1"
 upstream_port: 8080
 
+# Self-signed by default; swap to LE certs later
 ssl_cert: "/etc/pki/nginx/server.crt"
 ssl_key:  "/etc/pki/nginx/private/server.key"
 

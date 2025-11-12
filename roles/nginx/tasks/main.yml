@@ -10,7 +10,7 @@
     state: started
     enabled: true
 
-# Remove default server{} from main nginx.conf to avoid :80 conflicts
+# Remove built-in default server in nginx.conf (avoids :80 conflicts)
 - name: Remove built-in default HTTP server block from nginx.conf
   replace:
     path: /etc/nginx/nginx.conf
@@ -18,7 +18,7 @@
     replace: ''
   notify: validate nginx
 
-# Deploy http{}-level map for WebSocket upgrades
+# Deploy http{} map
 - name: Deploy upgrade map (http context)
   template:
     src: 00-upgrade-map.conf.j2
@@ -28,7 +28,7 @@
     mode: '0644'
   notify: validate nginx
 
-# Deploy the canonical www9 vhost
+# Deploy canonical vhost
 - name: Deploy www9 vhost
   template:
     src: site.conf.j2
@@ -38,7 +38,7 @@
     mode: '0644'
   notify: validate nginx
 
-# Remove any legacy/conflicting vhosts (keep only www9)
+# Remove legacy/conflicting vhosts
 - name: Remove legacy/conflicting vhosts
   file:
     path: "{{ item }}"
