@@ -1,0 +1,180 @@
+---
+- name: Bootstrap web reverse proxy host
+  hosts: web
+  become: true
+  gather_facts: true
+
+  vars:
+    domain: web9.htf25.qubr.be
+    app_image: quay.io/ebrahim_alamoudi/hack_the_future:latest
+    app_port: 8080
+    app_user: ec2-user
+    tls_dir: /etc/ssl/web9
+    cert_path: /etc/ssl/web9/web.crt
+    key_path: /etc/ssl/web9/web.key
+
+  tasks:
+    - name: Ensure base packages (RHEL-family)
+      package:
+        name:
+          - nginx
+          - podman
+          - firewalld
+          - policycoreutils-python-utils
+        state: present
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Ensure base packages (Debian-family)
+      apt:
+        name:
+          - nginx
+          - podman
+          - ufw
+          - certbot
+          - python3-certbot-nginx
+        update_cache: yes
+        state: present
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Enable/start firewalld (RHEL)
+      service: {name: firewalld, state: started, enabled: true}
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Open 80/443 (RHEL)
+      firewalld:
+        service: "{{ item }}"
+        permanent: true
+        state: enabled
+        immediate: true
+      loop: [http, https]
+      when: ansible_facts['os_family'] == 'RedHat'
+
+    - name: Allow 80/443 via ufw (Debian)
+      ufw:
+        rule: allow
+        name: "{{ item }}"
+      loop: [WWW, 'WWW Secure']
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: Create TLS dir
+      file:
+        path: "{{ tls_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Create self-signed cert (swap to Certbot later)
+      command: >
+        openssl req -x509 -nodes -newkey rsa:2048
+        -keyout {{ key_path }} -out {{ cert_path }}
+        -days 365 -subj "/CN={{ domain }}"
+      args:
+        creates: "{{ cert_path }}"
+
+    - name: Set SELinux to allow nginx -> network
+      command: setsebool -P httpd_can_network_connect 1
+      when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+
+    - name: Allow port {{ app_port }} in SELinux http_port_t
+      command: semanage port -a -t http_port_t -p tcp {{ app_port }}
+      register: semanage_res
+      failed_when: semanage_res.rc not in [0,1]
+      changed_when: semanage_res.rc == 0
+      when: ansible_facts['selinux']['status'] | default('disabled') == 'enabled'
+
+    - name: Enable linger for {{ app_user }} (rootless systemd)
+      command: loginctl enable-linger {{ app_user }}
+
+    - name: Ensure user systemd dir exists
+      file:
+        path: "/home/{{ app_user }}/.config/systemd/user"
+        state: directory
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0755'
+
+    - name: Create rootless Podman service
+      copy:
+        dest: "/home/{{ app_user }}/.config/systemd/user/container-pirospc.service"
+        owner: "{{ app_user }}"
+        group: "{{ app_user }}"
+        mode: '0644'
+        content: |
+          [Unit]
+          Description=PirosPC container (rootless)
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          ExecStartPre=/usr/bin/podman pull {{ app_image }}
+          ExecStart=/usr/bin/podman run --rm --name pirospc \
+            -p 127.0.0.1:{{ app_port }}:80 \
+            {{ app_image }}
+          ExecStop=/usr/bin/podman stop pirospc
+          Restart=always
+          RestartSec=3
+
+          [Install]
+          WantedBy=default.target
+
+    - name: Daemon-reload user and enable service
+      become: false
+      vars:
+        ansible_become: false
+      command: "systemctl --user daemon-reload"
+      become_user: "{{ app_user }}"
+
+    - name: Enable/start container service
+      become: false
+      vars:
+        ansible_become: false
+      command: "systemctl --user enable --now container-pirospc.service"
+      become_user: "{{ app_user }}"
+
+    - name: Wait for app to listen
+      wait_for:
+        host: 127.0.0.1
+        port: "{{ app_port }}"
+        timeout: 90
+
+    - name: Nginx site config
+      copy:
+        dest: /etc/nginx/conf.d/web9.conf
+        mode: '0644'
+        content: |
+          server {
+            listen 80;
+            server_name {{ domain }};
+            return 301 https://$host$request_uri;
+          }
+
+          server {
+            listen 443 ssl http2;
+            server_name {{ domain }};
+
+            ssl_certificate     {{ cert_path }};
+            ssl_certificate_key {{ key_path }};
+
+            ssl_protocols TLSv1.3;
+            ssl_prefer_server_ciphers on;
+
+            add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+
+            location / {
+              proxy_pass http://127.0.0.1:{{ app_port }};
+              proxy_set_header Host $host;
+              proxy_set_header X-Real-IP $remote_addr;
+              proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+              proxy_set_header X-Forwarded-Proto $scheme;
+            }
+          }
+
+    - name: Test nginx config
+      command: nginx -t
+
+    - name: Enable & restart nginx
+      service:
+        name: nginx
+        state: restarted
+        enabled: true
