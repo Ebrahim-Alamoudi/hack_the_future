@@ -10,22 +10,40 @@ server {
 
 # --- HTTPS (443): www9 canonical host only ---
 server {
-    listen {{ listen_https }} ssl default_server;
-    listen [::]:{{ listen_https }} ssl default_server;
+    listen {{ listen_https }} ssl http2 default_server;
+    listen [::]:{{ listen_https }} ssl http2 default_server;
     server_name {{ canonical_name }};
-    http2 on;
 
-    ssl_certificate     {{ ssl_cert }};
-    ssl_certificate_key {{ ssl_key  }};
-    ssl_protocols       TLSv1.3;
-    ssl_prefer_server_ciphers on;
+    # --- Let's Encrypt (Certbot) paths ---
+    ssl_certificate     {{ ssl_fullchain }};
+    ssl_certificate_key {{ ssl_privkey }};
 
+    # Use Certbot’s hardened TLS settings (cipher suites, etc.)
+    include {{ ssl_options }};
+
+    # Your assignment requires TLS 1.3; keep it strict
+    ssl_protocols TLSv1.3;
+
+    # (Optional) OCSP stapling for faster/safer handshakes
+    ssl_stapling on;
+    ssl_stapling_verify on;
+    ssl_trusted_certificate {{ ssl_chain }};
+    resolver 1.1.1.1 8.8.8.8 valid=300s;
+    resolver_timeout 5s;
+
+    # Security headers
     {% if enable_hsts %}
     add_header Strict-Transport-Security "max-age={{ hsts_max_age }}; includeSubDomains" always;
     {% endif %}
     add_header X-Content-Type-Options nosniff always;
     add_header X-Frame-Options SAMEORIGIN always;
-    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+
+    # Serve ACME challenges from webroot so certbot --webroot works, without touching your upstream
+    location ^~ /.well-known/acme-challenge/ {
+        root {{ acme_webroot }};
+        default_type "text/plain";
+    }
 
     location / {
         proxy_pass http://{{ upstream_host }}:{{ upstream_port }};

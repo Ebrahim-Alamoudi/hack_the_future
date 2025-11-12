@@ -1,5 +1,5 @@
 ---
-- name: Configure Nginx reverse proxy with TLS
+- name: Configure Nginx reverse proxy with TLS (www9-only)
   hosts: all
   become: true
   roles:
