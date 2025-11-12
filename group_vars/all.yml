@@ -7,7 +7,7 @@ upstream_host: "127.0.0.1"
 upstream_port: 8080
 
 ssl_cert: "/etc/pki/nginx/server.crt"
-ssl_key:  "/etc/pki/nginx/private/server.key"
+ssl_key: "/etc/pki/nginx/private/server.key"
 
 enable_hsts: true
 hsts_max_age: 15552000
