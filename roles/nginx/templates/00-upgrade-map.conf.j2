@@ -1,0 +1,5 @@
+# Defines $connection_upgrade based on $http_upgrade (http context)
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
