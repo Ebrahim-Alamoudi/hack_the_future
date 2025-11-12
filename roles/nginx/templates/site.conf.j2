@@ -1,14 +1,14 @@
 # Managed by Ansible — do not edit
 
-# --- HTTP -> HTTPS on canonical host ---
+# --- HTTP (80): redirect to HTTPS on the canonical host ---
 server {
     listen {{ listen_http }} default_server;
     listen [::]:{{ listen_http }} default_server;
-    server_name _;
+    server_name {{ canonical_name }};
     return 301 https://{{ canonical_name }}$request_uri;
 }
 
-# --- HTTPS vhost ---
+# --- HTTPS (443): www9 canonical host only ---
 server {
     listen {{ listen_https }} ssl default_server;
     listen [::]:{{ listen_https }} ssl default_server;
@@ -17,7 +17,7 @@ server {
 
     ssl_certificate     {{ ssl_cert }};
     ssl_certificate_key {{ ssl_key  }};
-    ssl_protocols TLSv1.3;
+    ssl_protocols       TLSv1.3;
     ssl_prefer_server_ciphers on;
 
     {% if enable_hsts %}
